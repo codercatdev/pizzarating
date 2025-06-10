@@ -13,11 +13,23 @@ export interface Event {
   location: string;
   participants: string[];
   status: 'upcoming' | 'in-progress' | 'completed';
+  createdAt: string;
+}
+
+export interface Pizza {
+  id: string;
+  eventId: string;
+  name: string;
+  description: string;
+  imageUrl?: string;
+  createdBy: string;
+  createdAt: string;
 }
 
 export interface Rating {
   id: string;
   eventId: string;
+  pizzaId: string;
   userId: string;
   createdAt: string;
   criteria: {

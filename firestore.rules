@@ -5,11 +5,26 @@ service cloud.firestore {
     match /{document=**} {
       allow read, write: if false;
     }
+    
+    // Events rules
     match /events/{eventId} {
+      allow read: if request.auth != null && request.auth.uid in resource.data.participants;
       allow create: if request.auth != null && request.resource.data.createdBy == request.auth.uid;
-      allow update, delete: if request.auth != null
-        && resource.data.createdBy == request.auth.uid
-        && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.createdBy == request.auth.uid;
+    }
+    
+    // Pizzas rules
+    match /pizzas/{pizzaId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.createdBy == request.auth.uid;
+    }
+    
+    // Ratings rules
+    match /ratings/{ratingId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
   }
 }
