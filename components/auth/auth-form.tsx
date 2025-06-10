@@ -1,40 +1,23 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 
-interface AuthFormData {
-  email: string;
-  password: string;
-}
-
 export function AuthForm() {
-  const [isLogin, setIsLogin] = useState(true);
   const { toast } = useToast();
-  const { register, handleSubmit, formState: { errors } } = useForm<AuthFormData>();
+  const googleProvider = new GoogleAuthProvider();
 
-  const onSubmit = async (data: AuthFormData) => {
+  const handleGoogleSignIn = async () => {
     try {
-      if (isLogin) {
-        await signInWithEmailAndPassword(auth, data.email, data.password);
-        toast({
-          title: 'Welcome back!',
-          description: 'Successfully logged in.',
-        });
-      } else {
-        await createUserWithEmailAndPassword(auth, data.email, data.password);
-        toast({
-          title: 'Account created!',
-          description: 'Welcome to Pizzazzle!',
-        });
-      }
+      await signInWithPopup(auth, googleProvider);
+      toast({
+        title: 'Welcome!',
+        description: 'Successfully signed in with Google.',
+      });
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -47,46 +30,36 @@ export function AuthForm() {
   return (
     <Card className="w-[350px]">
       <CardHeader>
-        <CardTitle>{isLogin ? 'Login' : 'Sign Up'}</CardTitle>
+        <CardTitle>Welcome to the <br /> Pizza Rating App</CardTitle>
         <CardDescription>
-          {isLogin
-            ? 'Welcome back to Pizzazzle!'
-            : 'Create an account to start rating pizzas'}
+          Sign in with Google to start rating pizzas
         </CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              {...register('email', { required: true })}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              {...register('password', { required: true })}
-            />
-          </div>
-        </CardContent>
-        <CardFooter className="flex flex-col space-y-2">
-          <Button type="submit" className="w-full">
-            {isLogin ? 'Login' : 'Sign Up'}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            className="w-full"
-            onClick={() => setIsLogin(!isLogin)}
+      <CardContent>
+        <Button
+          type="button"
+          className="w-full"
+          onClick={handleGoogleSignIn}
+          variant="default"
+        >
+          <svg
+            className="mr-2 h-4 w-4"
+            aria-hidden="true"
+            focusable="false"
+            data-prefix="fab"
+            data-icon="google"
+            role="img"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 488 512"
           >
-            {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Login'}
-          </Button>
-        </CardFooter>
-      </form>
+            <path
+              fill="currentColor"
+              d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"
+            ></path>
+          </svg>
+          Sign in with Google
+        </Button>
+      </CardContent>
     </Card>
   );
 }

@@ -60,7 +60,7 @@ export function CreateEventForm({ userId }: CreateEventFormProps) {
   return (
     <Card className="max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle>Event Details</CardTitle>
+        <CardTitle>Event Details {userId}</CardTitle>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
         <CardContent className="space-y-6">
