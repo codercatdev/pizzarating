@@ -39,7 +39,7 @@ export function useAuth() {
     return `${adjective}${noun}${number}`;
   };
 
-  const createUserProfile = async (firebaseUser: User, isUpgrade = false) => {
+  const createUserProfile = async (firebaseUser: User, forceRefresh = false) => {
     try {
       const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
       
@@ -67,8 +67,11 @@ export function useAuth() {
       } else {
         const existingProfile = { id: userDoc.id, ...userDoc.data() } as UserProfile;
         
-        // If this is an upgrade from anonymous to full account
-        if (isUpgrade && existingProfile.isAnonymous && !firebaseUser.isAnonymous) {
+        // Check if this is an upgrade from anonymous to full account
+        const wasAnonymous = existingProfile.isAnonymous;
+        const isNowLinked = !firebaseUser.isAnonymous && firebaseUser.providerData.length > 0;
+        
+        if ((wasAnonymous && isNowLinked) || forceRefresh) {
           console.log('Upgrading anonymous account with IDP data...');
           console.log('Firebase user data for upgrade:', {
             displayName: firebaseUser.displayName,
@@ -133,6 +136,17 @@ export function useAuth() {
     }
   };
 
+  // Function to refresh user profile - useful after account linking
+  const refreshUserProfile = async () => {
+    if (user) {
+      console.log('Refreshing user profile...');
+      const profile = await createUserProfile(user, true);
+      setUserProfile(profile);
+      return profile;
+    }
+    return null;
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
@@ -180,6 +194,7 @@ export function useAuth() {
     user, 
     userProfile, 
     loading, 
-    signInAnonymouslyWithProfile 
+    signInAnonymouslyWithProfile,
+    refreshUserProfile
   };
 }

@@ -15,7 +15,7 @@ interface AuthFormProps {
 
 export function AuthForm({ showAnonymousOption = true, onAnonymousSignIn }: AuthFormProps) {
   const { toast } = useToast();
-  const { user, userProfile, signInAnonymouslyWithProfile } = useAuth();
+  const { user, userProfile, signInAnonymouslyWithProfile, refreshUserProfile } = useAuth();
   const [loading, setLoading] = useState(false);
   const googleProvider = new GoogleAuthProvider();
 
@@ -27,6 +27,11 @@ export function AuthForm({ showAnonymousOption = true, onAnonymousSignIn }: Auth
         // Link anonymous account with Google
         console.log('Linking anonymous account with Google...');
         const result = await linkWithPopup(user, googleProvider);
+        
+        // Force refresh the user profile to get updated data
+        setTimeout(async () => {
+          await refreshUserProfile();
+        }, 1000);
         
         toast({
           title: 'Account Upgraded! 🎉',
