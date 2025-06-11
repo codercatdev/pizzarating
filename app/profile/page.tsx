@@ -1,9 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,13 +37,22 @@ const avatarColors = [
 ];
 
 export default function ProfilePage() {
-  const { user, userProfile, loading } = useAuth();
+  const { user, userProfile, loading, updateUserProfile } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [displayName, setDisplayName] = useState(userProfile?.displayName || '');
-  const [selectedColor, setSelectedColor] = useState(userProfile?.avatarColor || 'bg-blue-500');
+  const [displayName, setDisplayName] = useState('');
+  const [selectedColor, setSelectedColor] = useState('bg-blue-500');
   const [saving, setSaving] = useState(false);
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
+
+  // Update form values when userProfile changes (including real-time updates)
+  useEffect(() => {
+    if (userProfile) {
+      console.log('Updating form with profile data:', userProfile);
+      setDisplayName(userProfile.displayName || '');
+      setSelectedColor(userProfile.avatarColor || 'bg-blue-500');
+    }
+  }, [userProfile]);
 
   if (loading) {
     return (
@@ -68,7 +75,7 @@ export default function ProfilePage() {
     try {
       setSaving(true);
       
-      await updateDoc(doc(db, 'users', user.uid), {
+      await updateUserProfile({
         displayName: displayName.trim(),
         avatarColor: selectedColor,
       });
@@ -87,6 +94,11 @@ export default function ProfilePage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleCancel = () => {
+    setDisplayName(userProfile.displayName || '');
+    setSelectedColor(userProfile.avatarColor || 'bg-blue-500');
   };
 
   const hasChanges = displayName !== userProfile.displayName || selectedColor !== userProfile.avatarColor;
@@ -172,10 +184,7 @@ export default function ProfilePage() {
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => {
-                      setDisplayName(userProfile.displayName);
-                      setSelectedColor(userProfile.avatarColor);
-                    }}
+                    onClick={handleCancel}
                   >
                     Cancel
                   </Button>
@@ -299,10 +308,13 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
 
-          {/* Preview Card */}
+          {/* Live Preview Card */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Profile Preview</CardTitle>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Palette className="h-4 w-4" />
+                Live Preview
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
@@ -319,6 +331,11 @@ export default function ProfilePage() {
               <p className="text-xs text-gray-500 mt-2">
                 This is how you'll appear to other participants
               </p>
+              {hasChanges && (
+                <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
+                  ✨ You have unsaved changes
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

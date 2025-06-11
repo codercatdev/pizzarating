@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { User, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
 export interface UserProfile {
@@ -147,6 +147,20 @@ export function useAuth() {
     return null;
   };
 
+  // Function to update user profile in Firestore
+  const updateUserProfile = async (updates: Partial<UserProfile>) => {
+    if (!user) return null;
+    
+    try {
+      await updateDoc(doc(db, 'users', user.uid), updates);
+      console.log('Profile updated successfully:', updates);
+      return true;
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      throw error;
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
@@ -190,11 +204,38 @@ export function useAuth() {
     return () => unsubscribe();
   }, [userProfile?.isAnonymous]); // Add dependency to detect anonymous state changes
 
+  // Set up real-time listener for user profile updates
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('Setting up real-time listener for user profile:', user.uid);
+    
+    const unsubscribe = onSnapshot(
+      doc(db, 'users', user.uid),
+      (doc) => {
+        if (doc.exists()) {
+          const updatedProfile = { id: doc.id, ...doc.data() } as UserProfile;
+          console.log('Profile updated from Firestore:', updatedProfile);
+          setUserProfile(updatedProfile);
+        }
+      },
+      (error) => {
+        console.error('Error listening to profile updates:', error);
+      }
+    );
+
+    return () => {
+      console.log('Cleaning up profile listener');
+      unsubscribe();
+    };
+  }, [user?.uid]);
+
   return { 
     user, 
     userProfile, 
     loading, 
     signInAnonymouslyWithProfile,
-    refreshUserProfile
+    refreshUserProfile,
+    updateUserProfile
   };
 }
