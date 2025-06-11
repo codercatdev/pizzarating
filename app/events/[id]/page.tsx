@@ -13,7 +13,7 @@ import { format } from 'date-fns';
 import Link from 'next/link';
 import { PizzaList } from '@/components/pizzas/pizza-list';
 import { ParticipantManagement } from '@/components/events/participant-management';
-import { AuthForm } from '@/components/auth/auth-form';
+import { EventJoinRequest } from '@/components/events/event-join-request';
 
 export default function EventPage() {
   const { id } = useParams();
@@ -22,7 +22,6 @@ export default function EventPage() {
   const { toast } = useToast();
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showAuthForm, setShowAuthForm] = useState(false);
 
   useEffect(() => {
     async function fetchEvent() {
@@ -57,13 +56,13 @@ export default function EventPage() {
   const handleAnonymousSignIn = async () => {
     try {
       await signInAnonymouslyWithProfile();
-      toast({
-        title: 'Welcome!',
-        description: 'You can now join the event and rate pizzas!',
-      });
     } catch (error) {
       console.error('Auto anonymous sign-in failed:', error);
-      setShowAuthForm(true);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to create guest account. Please refresh the page.',
+      });
     }
   };
 
@@ -85,32 +84,62 @@ export default function EventPage() {
     );
   }
 
-  // Show auth form if user couldn't be auto-signed in
-  if (!user && showAuthForm) {
+  if (!user || !userProfile) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-md mx-auto">
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-amber-900 mb-2">Join the Pizza Party!</h1>
-            <p className="text-gray-600">Sign in to join "{event.title}" and start rating pizzas.</p>
-          </div>
-          <AuthForm onAnonymousSignIn={() => setShowAuthForm(false)} />
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-amber-900 mb-4">Loading...</h1>
+          <p className="text-gray-600">Setting up your guest account...</p>
         </div>
       </div>
     );
   }
 
-  if (!user || !userProfile) {
-    return null;
-  }
-
   const isEventCreator = event.createdBy === user.uid;
   const isParticipant = event.participants.includes(user.uid);
+  const hasPendingRequest = event.pendingRequests?.includes(user.uid) || false;
 
   const handleEventUpdate = (updatedEvent: Event) => {
     setEvent(updatedEvent);
   };
 
+  // Show limited view for non-participants
+  if (!isParticipant && !isEventCreator) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <Link 
+            href="/dashboard"
+            className="inline-flex items-center text-amber-600 hover:text-amber-700 mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </Link>
+          
+          <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
+            <Pizza className="h-16 w-16 text-amber-500 mx-auto mb-4" />
+            <h1 className="text-3xl font-bold text-amber-900 mb-4">{event.title}</h1>
+            
+            <div className="max-w-md mx-auto space-y-4">
+              <p className="text-gray-600">
+                This is a private pizza rating event. You'll need to join to see the pizzas and participate in the ratings.
+              </p>
+              
+              <EventJoinRequest
+                event={event}
+                currentUserId={user.uid}
+                userProfile={userProfile}
+                hasPendingRequest={hasPendingRequest}
+                onEventUpdate={handleEventUpdate}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Full event view for participants
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
@@ -171,33 +200,19 @@ export default function EventPage() {
         />
       </div>
 
-      {isParticipant && (
-        <>
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-amber-900 mb-4">
-              Pizza Collection
-            </h2>
-            <p className="text-gray-600">
-              {isEventCreator 
-                ? 'Add pizzas and rate them alongside your participants!' 
-                : 'Rate each pizza based on the different criteria.'
-              }
-            </p>
-          </div>
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-amber-900 mb-4">
+          Pizza Collection
+        </h2>
+        <p className="text-gray-600">
+          {isEventCreator 
+            ? 'Add pizzas and rate them alongside your participants!' 
+            : 'Rate each pizza based on the different criteria.'
+          }
+        </p>
+      </div>
 
-          <PizzaList eventId={event.id} isEventCreator={isEventCreator} />
-        </>
-      )}
-
-      {!isParticipant && (
-        <div className="text-center py-12 bg-amber-50 rounded-lg">
-          <Pizza className="h-16 w-16 text-amber-300 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-amber-900 mb-2">Join the Pizza Party!</h3>
-          <p className="text-amber-700">
-            You need to join this event to see and rate the pizzas. Click "Join Event" above to get started!
-          </p>
-        </div>
-      )}
+      <PizzaList eventId={event.id} isEventCreator={isEventCreator} />
     </div>
   );
 }

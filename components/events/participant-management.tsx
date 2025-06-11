@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { UserAvatar } from '@/components/shared/user-avatar';
-import { Users, UserPlus, UserMinus, Crown } from 'lucide-react';
+import { Users, UserPlus, UserMinus, Crown, Clock, Check, X } from 'lucide-react';
 
 interface ParticipantManagementProps {
   event: Event;
@@ -30,31 +30,60 @@ export function ParticipantManagement({
   const { userProfile } = useAuth();
 
   const isParticipant = event.participants.includes(currentUserId);
+  const pendingRequests = event.pendingRequests || [];
 
-  const handleJoinEvent = async () => {
-    if (isParticipant) return;
-
+  const handleApproveRequest = async (userId: string) => {
     try {
       setLoading(true);
       await updateDoc(doc(db, 'events', event.id), {
-        participants: arrayUnion(currentUserId)
+        participants: arrayUnion(userId),
+        pendingRequests: arrayRemove(userId)
       });
 
       const updatedEvent = {
         ...event,
-        participants: [...event.participants, currentUserId]
+        participants: [...event.participants, userId],
+        pendingRequests: pendingRequests.filter(id => id !== userId)
       };
       onEventUpdate(updatedEvent);
 
       toast({
-        title: 'Success!',
-        description: 'You have joined the event.',
+        title: 'Request Approved!',
+        description: 'The user has been added to the event.',
       });
     } catch (error) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to join event. Please try again.',
+        description: 'Failed to approve request. Please try again.',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRejectRequest = async (userId: string) => {
+    try {
+      setLoading(true);
+      await updateDoc(doc(db, 'events', event.id), {
+        pendingRequests: arrayRemove(userId)
+      });
+
+      const updatedEvent = {
+        ...event,
+        pendingRequests: pendingRequests.filter(id => id !== userId)
+      };
+      onEventUpdate(updatedEvent);
+
+      toast({
+        title: 'Request Rejected',
+        description: 'The join request has been declined.',
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to reject request. Please try again.',
       });
     } finally {
       setLoading(false);
@@ -92,77 +121,108 @@ export function ParticipantManagement({
   };
 
   return (
-    <Card className="border-amber-200">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-amber-900">
-          <Users className="h-5 w-5" />
-          Event Participants ({event.participants.length})
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-wrap gap-2">
-          {event.participants.map((participantId, index) => (
-            <div key={participantId} className="flex items-center gap-2">
-              {participantId === currentUserId && userProfile && (
-                <UserAvatar size="sm" />
-              )}
-              <Badge 
-                variant={participantId === event.createdBy ? "default" : "secondary"}
-                className="flex items-center gap-1"
-              >
-                {participantId === event.createdBy && (
-                  <Crown className="h-3 w-3" />
+    <div className="space-y-4">
+      {/* Current Participants */}
+      <Card className="border-amber-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-amber-900">
+            <Users className="h-5 w-5" />
+            Event Participants ({event.participants.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {event.participants.map((participantId, index) => (
+              <div key={participantId} className="flex items-center gap-2">
+                {participantId === currentUserId && userProfile && (
+                  <UserAvatar size="sm" />
                 )}
-                {participantId === currentUserId ? 'You' : `Participant ${index + 1}`}
+                <Badge 
+                  variant={participantId === event.createdBy ? "default" : "secondary"}
+                  className="flex items-center gap-1"
+                >
+                  {participantId === event.createdBy && (
+                    <Crown className="h-3 w-3" />
+                  )}
+                  {participantId === currentUserId ? 'You' : `Participant ${index + 1}`}
+                </Badge>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-2">
+            {isParticipant && !isEventCreator && (
+              <Button
+                onClick={handleLeaveEvent}
+                disabled={loading}
+                variant="destructive"
+                size="sm"
+              >
+                <UserMinus className="h-4 w-4 mr-2" />
+                {loading ? 'Leaving...' : 'Leave Event'}
+              </Button>
+            )}
+
+            {isEventCreator && (
+              <Badge variant="outline" className="text-amber-600 border-amber-300">
+                <Crown className="h-3 w-3 mr-1" />
+                Event Creator
               </Badge>
+            )}
+          </div>
+
+          {userProfile?.isAnonymous && isParticipant && (
+            <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg border border-blue-200">
+              <p className="font-medium">💡 Tip: You're using a guest account!</p>
+              <p>Consider upgrading your account to save your ratings permanently and access them from any device.</p>
             </div>
-          ))}
-        </div>
-
-        <div className="flex gap-2">
-          {!isParticipant && (
-            <Button
-              onClick={handleJoinEvent}
-              disabled={loading}
-              className="bg-green-500 hover:bg-green-600"
-            >
-              <UserPlus className="h-4 w-4 mr-2" />
-              {loading ? 'Joining...' : 'Join Event'}
-            </Button>
           )}
+        </CardContent>
+      </Card>
 
-          {isParticipant && !isEventCreator && (
-            <Button
-              onClick={handleLeaveEvent}
-              disabled={loading}
-              variant="destructive"
-            >
-              <UserMinus className="h-4 w-4 mr-2" />
-              {loading ? 'Leaving...' : 'Leave Event'}
-            </Button>
-          )}
-
-          {isEventCreator && (
-            <Badge variant="outline" className="text-amber-600 border-amber-300">
-              <Crown className="h-3 w-3 mr-1" />
-              Event Creator
-            </Badge>
-          )}
-        </div>
-
-        {!isParticipant && (
-          <div className="text-sm text-gray-600 bg-amber-50 p-3 rounded-lg">
-            <p>You need to join this event to rate pizzas and participate in the fun!</p>
-          </div>
-        )}
-
-        {userProfile?.isAnonymous && isParticipant && (
-          <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg border border-blue-200">
-            <p className="font-medium">💡 Tip: You're using a guest account!</p>
-            <p>Consider upgrading your account to save your ratings permanently and access them from any device.</p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      {/* Pending Join Requests (Only visible to event creator) */}
+      {isEventCreator && pendingRequests.length > 0 && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-orange-900">
+              <Clock className="h-5 w-5" />
+              Pending Join Requests ({pendingRequests.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {pendingRequests.map((userId, index) => (
+              <div key={userId} className="flex items-center justify-between p-3 bg-white rounded-lg border">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">
+                    Guest User {index + 1}
+                  </Badge>
+                  <span className="text-sm text-gray-600">wants to join</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleApproveRequest(userId)}
+                    disabled={loading}
+                    size="sm"
+                    className="bg-green-500 hover:bg-green-600"
+                  >
+                    <Check className="h-4 w-4 mr-1" />
+                    Approve
+                  </Button>
+                  <Button
+                    onClick={() => handleRejectRequest(userId)}
+                    disabled={loading}
+                    size="sm"
+                    variant="destructive"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Reject
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }

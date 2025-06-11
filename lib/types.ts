@@ -12,6 +12,7 @@ export interface Event {
   date: string;
   location: string;
   participants: string[];
+  pendingRequests?: string[]; // New field for join requests
   status: 'upcoming' | 'in-progress' | 'completed';
   createdAt: string;
 }

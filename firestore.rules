@@ -18,10 +18,9 @@ service cloud.firestore {
     // An event document should contain a 'createdBy' (UID) field and a 'participants' (array of UIDs) field.
     match /events/{eventId} {
       // READ (get, list):
-      // Allow a user to read an event if their UID is in the 'participants' array.
-      // This also allows for client-side queries to list events a user is part of, e.g.:
-      // db.collection('events').where('participants', 'array-contains', 'user-uid')
-      allow read: if request.auth != null && request.auth.uid in resource.data.participants;
+      // Allow any authenticated user to read an event (for join requests)
+      // This allows anonymous users to see basic event info before joining
+      allow read: if request.auth != null;
 
       // CREATE:
       // Allow a user to create an event if they set themselves as the creator.
@@ -30,10 +29,16 @@ service cloud.firestore {
 
       // UPDATE:
       // Allow the original creator of the event to update it.
-      // The 'createdBy' field must not be changed upon update.
-      allow update: if request.auth != null
-                    && resource.data.createdBy == request.auth.uid
-                    && request.resource.data.createdBy == request.auth.uid;
+      // Also allow users to add themselves to pendingRequests
+      // Also allow creator to manage participants and pendingRequests
+      allow update: if request.auth != null && (
+        // Event creator can update anything
+        (resource.data.createdBy == request.auth.uid) ||
+        // Users can add themselves to pendingRequests
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pendingRequests']) &&
+         request.auth.uid in request.resource.data.pendingRequests &&
+         !(request.auth.uid in resource.data.get('pendingRequests', [])))
+      );
       
       // DELETE:
       // Allow the original creator of the event to delete it.
