@@ -2,37 +2,104 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // By default, deny all reads and writes to prevent unauthorized access.
     match /{document=**} {
       allow read, write: if false;
     }
+
+    // --- Rules for the 'events' collection ---
+    // An event document should contain a 'createdBy' (UID) field and a 'participants' (array of UIDs) field.
     match /events/{eventId} {
-    	allow read: if request.auth != null && request.auth.uid in resource.data.participants;
-      allow create: if request.auth != null && request.resource.data.createdBy == request.auth.uid;
-      allow update, delete: if request.auth != null
-        && resource.data.createdBy == request.auth.uid
-        && request.resource.data.createdBy == request.auth.uid;
-    }
-    match /pizzas/{pizzaId} {
-    	allow read: if request.auth != null && isEventParticipant();
-      allow update, delete: if request.auth != null && isEventCreator();
-    }
-    
-    match /ratings/{ratingId} {
-    	allow read: if request.auth != null && isEventParticipant();
-      allow update, delete: if request.auth != null && isEventParticipant()
-      	&& resource.data.userId == request.auth.uid
-        && request.resource.data.userId == request.auth.uid;
-    }
-    
-    function getEventData() {
-      return get(/databases/$(database)/documents/events/$(resource.data.eventId)).data;
-    }
-    function isEventParticipant() {
-      return request.auth.uid in getEventData().participants;
+      // READ (get, list):
+      // Allow a user to read an event if their UID is in the 'participants' array.
+      // This also allows for client-side queries to list events a user is part of, e.g.:
+      // db.collection('events').where('participants', 'array-contains', 'user-uid')
+      allow read: if request.auth != null && request.auth.uid in resource.data.participants;
+
+      // CREATE:
+      // Allow a user to create an event if they set themselves as the creator.
+      allow create: if request.auth != null
+                    && request.resource.data.createdBy == request.auth.uid;
+
+      // UPDATE:
+      // Allow the original creator of the event to update it.
+      // The 'createdBy' field must not be changed upon update.
+      allow update: if request.auth != null
+                    && resource.data.createdBy == request.auth.uid
+                    && request.resource.data.createdBy == request.auth.uid;
+      
+      // DELETE:
+      // Allow the original creator of the event to delete it.
+      allow delete: if request.auth != null
+                    && resource.data.createdBy == request.auth.uid;
     }
 
-    function isEventCreator() {
-      return request.auth.uid == getEventData().createdBy;
+    // --- Rules for the 'pizzas' collection ---
+    // A pizza document must contain an 'eventId' field linking it to an event.
+    match /pizzas/{pizzaId} {
+      // READ (get, list):
+      // Allow reading a pizza document if the user is a participant of the associated event.
+      // This works for single gets and for list queries like: db.collection('pizzas').where('eventId', '==', 'some-event-id')
+      allow read: if request.auth != null && isEventParticipant(resource.data.eventId);
+
+      // CREATE:
+      // Allow creating a pizza document if the user is the creator of the associated event.
+      allow create: if request.auth != null && isEventCreator(request.resource.data.eventId);
+      
+      // UPDATE & DELETE:
+      // Allow updating or deleting a pizza if the user is the creator of the associated event.
+      allow update: if request.auth != null
+                      && isEventCreator(resource.data.eventId)
+                      && request.resource.data.eventId == resource.data.eventId; // Prevent moving the pizza to a new event
+      allow delete: if request.auth != null && isEventCreator(resource.data.eventId);
+    }
+
+    // --- Rules for the 'ratings' collection ---
+    // A rating document must contain 'eventId' and 'userId' fields.
+    match /ratings/{ratingId} {
+      // READ (get, list):
+      // Allow reading a rating if the user is a participant of the associated event.
+      allow read: if request.auth != null && isEventParticipant(resource.data.eventId);
+      
+      // CREATE:
+      // Allow creating a rating if the user is a participant of the event
+      // and is creating the rating for themselves.
+      allow create: if request.auth != null
+                      && isEventParticipant(request.resource.data.eventId)
+                      && request.resource.data.userId == request.auth.uid;
+
+      // UPDATE:
+      // Allow a user to update their own rating, provided they are still a participant.
+      // The 'userId' and 'eventId' fields cannot be changed.
+      allow update: if request.auth != null
+                      && resource.data.userId == request.auth.uid
+                      && isEventParticipant(resource.data.eventId)
+                      && request.resource.data.userId == request.auth.uid
+                      && request.resource.data.eventId == resource.data.eventId;
+
+      // DELETE:
+      // Allow a user to delete their own rating, provided they are still a participant.
+      allow delete: if request.auth != null
+                      && resource.data.userId == request.auth.uid
+                      && isEventParticipant(resource.data.eventId);
+    }
+
+    // --- Helper Functions ---
+
+    // Gets the data for a specific event document from its ID.
+    function getEventData(eventId) {
+      return get(/databases/$(database)/documents/events/$(eventId)).data;
+    }
+
+    // Returns true if the authenticated user is in the 'participants' array of an event.
+    function isEventParticipant(eventId) {
+      return request.auth.uid in getEventData(eventId).participants;
+    }
+
+    // Returns true if the authenticated user is the creator of an event.
+    function isEventCreator(eventId) {
+      return request.auth.uid == getEventData(eventId).createdBy;
     }
   }
 }
