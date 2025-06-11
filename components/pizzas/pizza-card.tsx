@@ -16,13 +16,13 @@ interface PizzaCardProps {
   canRate?: boolean;
 }
 
-export function PizzaCard({ 
-  pizza, 
-  eventId, 
-  userRating, 
-  averageRating, 
+export function PizzaCard({
+  pizza,
+  eventId,
+  userRating,
+  averageRating,
   totalRatings = 0,
-  canRate = false 
+  canRate = false
 }: PizzaCardProps) {
   return (
     <Card className="hover:shadow-lg transition-all duration-200 border-2 hover:border-amber-200">
@@ -51,18 +51,18 @@ export function PizzaCard({
             />
           </div>
         )}
-        
+
         <p className="text-gray-600 text-sm leading-relaxed">{pizza.description}</p>
-        
+
         <div className="flex items-center justify-between pt-2">
           <div className="flex gap-2">
             {userRating && (
               <Badge variant="secondary" className="bg-green-100 text-green-800">
-                Your Rating: {userRating}/10
+                Your Rating: {parseFloat(userRating.toFixed(1))}/10
               </Badge>
             )}
           </div>
-          
+
           {canRate && (
             <Link href={`/events/${eventId}/pizzas/${pizza.id}/rate`}>
               <Button size="sm" className="bg-amber-500 hover:bg-amber-600">
