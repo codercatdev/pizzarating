@@ -38,10 +38,28 @@ export function useAuth() {
   };
 
   const createUserProfile = async (firebaseUser: User) => {
-    const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-    
-    if (!userDoc.exists()) {
-      const profile: UserProfile = {
+    try {
+      const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+      
+      if (!userDoc.exists()) {
+        const profile: UserProfile = {
+          uid: firebaseUser.uid,
+          displayName: firebaseUser.displayName || generateRandomUsername(),
+          email: firebaseUser.email || undefined,
+          isAnonymous: firebaseUser.isAnonymous,
+          avatarColor: generateAvatarColor(),
+          createdAt: new Date().toISOString(),
+        };
+
+        await setDoc(doc(db, 'users', firebaseUser.uid), profile);
+        return profile;
+      } else {
+        return { id: userDoc.id, ...userDoc.data() } as UserProfile;
+      }
+    } catch (error) {
+      console.error('Error creating/fetching user profile:', error);
+      // Return a basic profile if Firestore fails
+      return {
         uid: firebaseUser.uid,
         displayName: firebaseUser.displayName || generateRandomUsername(),
         email: firebaseUser.email || undefined,
@@ -49,11 +67,6 @@ export function useAuth() {
         avatarColor: generateAvatarColor(),
         createdAt: new Date().toISOString(),
       };
-
-      await setDoc(doc(db, 'users', firebaseUser.uid), profile);
-      return profile;
-    } else {
-      return { id: userDoc.id, ...userDoc.data() } as UserProfile;
     }
   };
 
@@ -71,19 +84,32 @@ export function useAuth() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser);
-        try {
+      try {
+        if (firebaseUser) {
+          setUser(firebaseUser);
           const profile = await createUserProfile(firebaseUser);
           setUserProfile(profile);
-        } catch (error) {
-          console.error('Error creating/fetching user profile:', error);
+        } else {
+          setUser(null);
+          setUserProfile(null);
         }
-      } else {
-        setUser(null);
-        setUserProfile(null);
+      } catch (error) {
+        console.error('Error in auth state change:', error);
+        // Set user even if profile creation fails
+        setUser(firebaseUser);
+        if (firebaseUser) {
+          setUserProfile({
+            uid: firebaseUser.uid,
+            displayName: firebaseUser.displayName || generateRandomUsername(),
+            email: firebaseUser.email || undefined,
+            isAnonymous: firebaseUser.isAnonymous,
+            avatarColor: generateAvatarColor(),
+            createdAt: new Date().toISOString(),
+          });
+        }
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();

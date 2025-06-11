@@ -22,17 +22,52 @@ export default function EventPage() {
   const { toast } = useToast();
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authInitialized, setAuthInitialized] = useState(false);
 
+  // First, handle authentication - ensure user is signed in (anonymously if needed)
+  useEffect(() => {
+    const initializeAuth = async () => {
+      if (authLoading) return; // Wait for auth to finish loading
+      
+      if (!user) {
+        // No user signed in, create anonymous user
+        try {
+          await signInAnonymouslyWithProfile();
+        } catch (error) {
+          console.error('Failed to create anonymous user:', error);
+          toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Failed to create guest account. Please refresh the page.',
+          });
+        }
+      }
+      
+      setAuthInitialized(true);
+    };
+
+    initializeAuth();
+  }, [authLoading, user, signInAnonymouslyWithProfile, toast]);
+
+  // Then, fetch event data only after auth is initialized
   useEffect(() => {
     async function fetchEvent() {
-      if (!id) return;
+      if (!id || !authInitialized || !user) return;
 
       try {
+        setLoading(true);
         const eventDoc = await getDoc(doc(db, 'events', id as string));
         if (eventDoc.exists()) {
           setEvent({ id: eventDoc.id, ...eventDoc.data() } as Event);
+        } else {
+          toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Event not found.',
+          });
         }
       } catch (error) {
+        console.error('Error fetching event:', error);
         toast({
           variant: 'destructive',
           title: 'Error',
@@ -44,52 +79,54 @@ export default function EventPage() {
     }
 
     fetchEvent();
-  }, [id, toast]);
+  }, [id, authInitialized, user, toast]);
 
-  // Auto sign-in anonymously when user visits event page without being logged in
-  useEffect(() => {
-    if (!authLoading && !user && event) {
-      handleAnonymousSignIn();
-    }
-  }, [authLoading, user, event]);
-
-  const handleAnonymousSignIn = async () => {
-    try {
-      await signInAnonymouslyWithProfile();
-    } catch (error) {
-      console.error('Auto anonymous sign-in failed:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to create guest account. Please refresh the page.',
-      });
-    }
-  };
-
-  if (authLoading || loading) {
+  // Show loading while auth is initializing or event is loading
+  if (authLoading || !authInitialized || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin">
-          <Pizza className="h-8 w-8 text-amber-500" />
+        <div className="text-center space-y-4">
+          <div className="animate-spin">
+            <Pizza className="h-8 w-8 text-amber-500 mx-auto" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-lg font-semibold text-amber-900">
+              {!authInitialized ? 'Setting up your account...' : 'Loading event...'}
+            </h2>
+            <p className="text-gray-600 text-sm">
+              {!authInitialized ? 'Creating your guest profile' : 'Fetching event details'}
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (!event) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold text-amber-900">Event not found</h1>
-      </div>
-    );
-  }
-
+  // Show error if no user after auth initialization
   if (!user || !userProfile) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-amber-900 mb-4">Loading...</h1>
-          <p className="text-gray-600">Setting up your guest account...</p>
+          <h1 className="text-2xl font-bold text-amber-900 mb-4">Authentication Error</h1>
+          <p className="text-gray-600 mb-4">Failed to create guest account. Please refresh the page to try again.</p>
+          <Button onClick={() => window.location.reload()}>
+            Refresh Page
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if event not found
+  if (!event) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-amber-900 mb-4">Event Not Found</h1>
+          <p className="text-gray-600 mb-4">The event you're looking for doesn't exist or has been removed.</p>
+          <Link href="/dashboard">
+            <Button>Go to Dashboard</Button>
+          </Link>
         </div>
       </div>
     );
