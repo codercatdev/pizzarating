@@ -9,7 +9,7 @@ export function DashboardHeader() {
         <p className="text-amber-700 mt-1">Manage and track your pizza rating adventures</p>
       </div>
       <Link href="/events/new">
-        <Button size="lg" className="bg-amber-500 hover:bg-amber-600">
+        <Button size="lg">
           Create New Event
         </Button>
       </Link>

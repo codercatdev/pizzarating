@@ -49,6 +49,7 @@ export function AddPizzaForm({ eventId, userId, onSuccess }: AddPizzaFormProps) 
       reset();
       onSuccess();
     } catch (error) {
+      console.error('failed to add pizza', JSON.stringify(error, null, 2));
       toast({
         variant: 'destructive',
         title: 'Error',
