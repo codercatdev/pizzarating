@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, or } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/use-auth';
 import { Event } from '@/lib/types';
@@ -16,19 +16,48 @@ export function EventList() {
     async function fetchEvents() {
       if (!user) return;
 
-      const eventsQuery = query(
-        collection(db, 'events'),
-        where('participants', 'array-contains', user.uid)
-      );
+      try {
+        // Query for events where user is either a participant or the creator
+        const eventsQuery = query(
+          collection(db, 'events'),
+          or(
+            where('participants', 'array-contains', user.uid),
+            where('createdBy', '==', user.uid)
+          )
+        );
 
-      const querySnapshot = await getDocs(eventsQuery);
-      const eventsList = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Event));
+        const querySnapshot = await getDocs(eventsQuery);
+        const eventsList = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Event));
 
-      setEvents(eventsList);
-      setLoading(false);
+        // Remove duplicates (in case user is both creator and participant)
+        const uniqueEvents = eventsList.filter((event, index, self) => 
+          index === self.findIndex(e => e.id === event.id)
+        );
+
+        setEvents(uniqueEvents);
+      } catch (error) {
+        console.error('Error fetching events:', error);
+        // Fallback to original query if 'or' query fails
+        try {
+          const fallbackQuery = query(
+            collection(db, 'events'),
+            where('participants', 'array-contains', user.uid)
+          );
+          const fallbackSnapshot = await getDocs(fallbackQuery);
+          const fallbackEvents = fallbackSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          } as Event));
+          setEvents(fallbackEvents);
+        } catch (fallbackError) {
+          console.error('Fallback query also failed:', fallbackError);
+        }
+      } finally {
+        setLoading(false);
+      }
     }
 
     fetchEvents();

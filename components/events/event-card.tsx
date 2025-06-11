@@ -1,19 +1,32 @@
 import { Event } from '@/lib/types';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, MapPin, Users } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Calendar, MapPin, Users, Crown } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
+import { useAuth } from '@/hooks/use-auth';
 
 interface EventCardProps {
   event: Event;
 }
 
 export function EventCard({ event }: EventCardProps) {
+  const { user } = useAuth();
+  const isEventCreator = user && event.createdBy === user.uid;
+
   return (
     <Card className="hover:shadow-lg transition-shadow">
       <CardHeader>
-        <CardTitle className="text-xl text-amber-900">{event.title}</CardTitle>
+        <div className="flex items-start justify-between">
+          <CardTitle className="text-xl text-amber-900">{event.title}</CardTitle>
+          {isEventCreator && (
+            <Badge variant="outline" className="text-amber-600 border-amber-300">
+              <Crown className="h-3 w-3 mr-1" />
+              Creator
+            </Badge>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center text-gray-600">

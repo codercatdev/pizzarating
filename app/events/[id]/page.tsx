@@ -12,6 +12,7 @@ import { Pizza, Calendar, MapPin, Users, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { PizzaList } from '@/components/pizzas/pizza-list';
+import { ParticipantManagement } from '@/components/events/participant-management';
 
 export default function EventPage() {
   const { id } = useParams();
@@ -68,6 +69,11 @@ export default function EventPage() {
   }
 
   const isEventCreator = event.createdBy === user.uid;
+  const isParticipant = event.participants.includes(user.uid);
+
+  const handleEventUpdate = (updatedEvent: Event) => {
+    setEvent(updatedEvent);
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -116,28 +122,45 @@ export default function EventPage() {
             }`}>
               {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
             </span>
-            
-            {isEventCreator && (
-              <div className="text-sm text-amber-600 font-medium">
-                You are the event creator
-              </div>
-            )}
           </div>
         </div>
       </div>
 
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-amber-900 mb-4">
-          {isEventCreator ? 'Manage Pizzas' : 'Rate the Pizzas'}
-        </h2>
-        {isEventCreator ? (
-          <p className="text-gray-600">Add pizzas for participants to rate and judge.</p>
-        ) : (
-          <p className="text-gray-600">Rate each pizza based on the different criteria.</p>
-        )}
+        <ParticipantManagement
+          event={event}
+          currentUserId={user.uid}
+          isEventCreator={isEventCreator}
+          onEventUpdate={handleEventUpdate}
+        />
       </div>
 
-      <PizzaList eventId={event.id} isEventCreator={isEventCreator} />
+      {isParticipant && (
+        <>
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-amber-900 mb-4">
+              {isEventCreator ? 'Manage Pizzas' : 'Rate the Pizzas'}
+            </h2>
+            {isEventCreator ? (
+              <p className="text-gray-600">Add pizzas for participants to rate and judge.</p>
+            ) : (
+              <p className="text-gray-600">Rate each pizza based on the different criteria.</p>
+            )}
+          </div>
+
+          <PizzaList eventId={event.id} isEventCreator={isEventCreator} />
+        </>
+      )}
+
+      {!isParticipant && (
+        <div className="text-center py-12 bg-amber-50 rounded-lg">
+          <Pizza className="h-16 w-16 text-amber-300 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-amber-900 mb-2">Join the Pizza Party!</h3>
+          <p className="text-amber-700">
+            You need to join this event to see and rate the pizzas. Click "Join Event" above to get started!
+          </p>
+        </div>
+      )}
     </div>
   );
 }
