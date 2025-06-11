@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { User, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
 export interface UserProfile {
@@ -12,6 +12,8 @@ export interface UserProfile {
   isAnonymous: boolean;
   avatarColor: string;
   createdAt: string;
+  upgradedAt?: string; // Track when account was upgraded
+  originalAnonymousId?: string; // Keep reference to original anonymous ID
 }
 
 export function useAuth() {
@@ -37,11 +39,12 @@ export function useAuth() {
     return `${adjective}${noun}${number}`;
   };
 
-  const createUserProfile = async (firebaseUser: User) => {
+  const createUserProfile = async (firebaseUser: User, isUpgrade = false) => {
     try {
       const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
       
       if (!userDoc.exists()) {
+        // New user - create fresh profile
         const profile: UserProfile = {
           uid: firebaseUser.uid,
           displayName: firebaseUser.displayName || generateRandomUsername(),
@@ -54,7 +57,41 @@ export function useAuth() {
         await setDoc(doc(db, 'users', firebaseUser.uid), profile);
         return profile;
       } else {
-        return { id: userDoc.id, ...userDoc.data() } as UserProfile;
+        const existingProfile = { id: userDoc.id, ...userDoc.data() } as UserProfile;
+        
+        // If this is an upgrade from anonymous to full account
+        if (isUpgrade && existingProfile.isAnonymous && !firebaseUser.isAnonymous) {
+          console.log('Upgrading anonymous account with IDP data...');
+          
+          // Overwrite with new account details from IDP
+          const upgradedProfile: UserProfile = {
+            ...existingProfile, // Keep existing data like createdAt, avatarColor
+            displayName: firebaseUser.displayName || existingProfile.displayName,
+            email: firebaseUser.email || existingProfile.email,
+            isAnonymous: false, // No longer anonymous
+            upgradedAt: new Date().toISOString(),
+            originalAnonymousId: existingProfile.uid, // Keep reference to original
+          };
+
+          // Update the profile in Firestore
+          await updateDoc(doc(db, 'users', firebaseUser.uid), {
+            displayName: upgradedProfile.displayName,
+            email: upgradedProfile.email,
+            isAnonymous: false,
+            upgradedAt: upgradedProfile.upgradedAt,
+            originalAnonymousId: upgradedProfile.originalAnonymousId,
+          });
+
+          console.log('Account upgraded successfully:', {
+            from: existingProfile.displayName,
+            to: upgradedProfile.displayName,
+            email: upgradedProfile.email
+          });
+
+          return upgradedProfile;
+        }
+        
+        return existingProfile;
       }
     } catch (error) {
       console.error('Error creating/fetching user profile:', error);
@@ -87,7 +124,17 @@ export function useAuth() {
       try {
         if (firebaseUser) {
           setUser(firebaseUser);
-          const profile = await createUserProfile(firebaseUser);
+          
+          // Check if this is an account upgrade (was anonymous, now has provider)
+          const wasAnonymous = userProfile?.isAnonymous === true;
+          const isNowLinked = !firebaseUser.isAnonymous && firebaseUser.providerData.length > 0;
+          const isUpgrade = wasAnonymous && isNowLinked;
+          
+          if (isUpgrade) {
+            console.log('Detected account upgrade from anonymous to linked account');
+          }
+          
+          const profile = await createUserProfile(firebaseUser, isUpgrade);
           setUserProfile(profile);
         } else {
           setUser(null);
@@ -113,7 +160,7 @@ export function useAuth() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [userProfile?.isAnonymous]); // Add dependency to detect anonymous state changes
 
   return { 
     user, 

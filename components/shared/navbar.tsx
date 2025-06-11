@@ -24,7 +24,7 @@ import Link from 'next/link';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { useState } from 'react';
-import { Settings, LogOut, LinkIcon } from 'lucide-react';
+import { Settings, LogOut, LinkIcon, Crown } from 'lucide-react';
 
 export function Navbar() {
   const { user, userProfile } = useAuth();
@@ -33,6 +33,8 @@ export function Navbar() {
   const handleSignOut = async () => {
     await signOut(auth);
   };
+
+  const isUpgradedAccount = userProfile?.upgradedAt && !userProfile?.isAnonymous;
 
   return (
     <nav className="border-b bg-white">
@@ -56,7 +58,7 @@ export function Navbar() {
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <div className="flex items-center justify-start gap-2 p-2">
-                  <UserAvatar size="sm" showName />
+                  <UserAvatar size="sm" showName showUpgradeStatus />
                 </div>
                 <DropdownMenuSeparator />
                 
@@ -74,7 +76,8 @@ export function Navbar() {
                           <DialogTitle>Upgrade Your Account</DialogTitle>
                           <DialogDescription>
                             Link your guest account with Google to save your ratings permanently 
-                            and access them from any device.
+                            and access them from any device. Your current username "{userProfile.displayName}" 
+                            will be updated with your Google profile information.
                           </DialogDescription>
                         </DialogHeader>
                         <AuthForm 
@@ -83,6 +86,16 @@ export function Navbar() {
                         />
                       </DialogContent>
                     </Dialog>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+
+                {isUpgradedAccount && (
+                  <>
+                    <DropdownMenuItem disabled>
+                      <Crown className="mr-2 h-4 w-4 text-amber-500" />
+                      <span className="text-green-600">Account Upgraded!</span>
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                   </>
                 )}

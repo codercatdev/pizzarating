@@ -15,7 +15,7 @@ interface AuthFormProps {
 
 export function AuthForm({ showAnonymousOption = true, onAnonymousSignIn }: AuthFormProps) {
   const { toast } = useToast();
-  const { user, signInAnonymouslyWithProfile } = useAuth();
+  const { user, userProfile, signInAnonymouslyWithProfile } = useAuth();
   const [loading, setLoading] = useState(false);
   const googleProvider = new GoogleAuthProvider();
 
@@ -25,27 +25,38 @@ export function AuthForm({ showAnonymousOption = true, onAnonymousSignIn }: Auth
       
       if (user?.isAnonymous) {
         // Link anonymous account with Google
-        await linkWithPopup(user, googleProvider);
+        console.log('Linking anonymous account with Google...');
+        const result = await linkWithPopup(user, googleProvider);
+        
         toast({
-          title: 'Account Linked!',
-          description: 'Your anonymous account has been linked with Google.',
+          title: 'Account Upgraded! 🎉',
+          description: `Welcome ${result.user.displayName || 'back'}! Your account has been linked with Google and your ratings are now saved permanently.`,
         });
       } else {
         // Regular Google sign-in
-        await signInWithPopup(auth, googleProvider);
+        const result = await signInWithPopup(auth, googleProvider);
         toast({
-          title: 'Welcome!',
-          description: 'Successfully signed in with Google.',
+          title: 'Welcome! 🍕',
+          description: `Hello ${result.user.displayName || 'Pizza Lover'}! Ready to rate some amazing pizzas?`,
         });
       }
     } catch (error: any) {
       console.error('Google sign-in error:', error);
+      
+      let errorMessage = 'Authentication failed. Please try again.';
+      
+      if (error.code === 'auth/credential-already-in-use') {
+        errorMessage = 'This Google account is already linked to another user. Please use a different account or sign in directly.';
+      } else if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'An account with this email already exists. Please sign in directly instead of linking.';
+      } else if (error.code === 'auth/provider-already-linked') {
+        errorMessage = 'This Google account is already linked to your account.';
+      }
+      
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: error.code === 'auth/credential-already-in-use' 
-          ? 'This Google account is already linked to another user.'
-          : 'Authentication failed. Please try again.',
+        title: 'Authentication Error',
+        description: errorMessage,
       });
     } finally {
       setLoading(false);
@@ -57,15 +68,15 @@ export function AuthForm({ showAnonymousOption = true, onAnonymousSignIn }: Auth
       setLoading(true);
       await signInAnonymouslyWithProfile();
       toast({
-        title: 'Welcome!',
-        description: 'You can start rating pizzas right away!',
+        title: 'Welcome, Pizza Explorer! 🍕',
+        description: 'You can start rating pizzas right away! Consider linking with Google to save your ratings permanently.',
       });
       onAnonymousSignIn?.();
     } catch (error) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to create anonymous account. Please try again.',
+        description: 'Failed to create guest account. Please try again.',
       });
     } finally {
       setLoading(false);
@@ -80,8 +91,8 @@ export function AuthForm({ showAnonymousOption = true, onAnonymousSignIn }: Auth
         </CardTitle>
         <CardDescription>
           {user?.isAnonymous 
-            ? 'Link your account with Google to save your ratings permanently'
-            : 'Sign in to start rating pizzas'
+            ? `Hi ${userProfile?.displayName}! Link your account with Google to save your ratings permanently and access them from any device.`
+            : 'Sign in to start rating pizzas and join events'
           }
         </CardDescription>
       </CardHeader>
@@ -108,7 +119,7 @@ export function AuthForm({ showAnonymousOption = true, onAnonymousSignIn }: Auth
               d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"
             ></path>
           </svg>
-          {user?.isAnonymous ? 'Link with Google' : 'Sign in with Google'}
+          {loading ? 'Processing...' : (user?.isAnonymous ? 'Link with Google' : 'Sign in with Google')}
         </Button>
 
         {showAnonymousOption && !user?.isAnonymous && (
