@@ -24,7 +24,7 @@ import Link from 'next/link';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { useState } from 'react';
-import { Settings, LogOut, LinkIcon, Crown } from 'lucide-react';
+import { Settings, LogOut, LinkIcon, User } from 'lucide-react';
 
 export function Navbar() {
   const { user, userProfile } = useAuth();
@@ -33,8 +33,6 @@ export function Navbar() {
   const handleSignOut = async () => {
     await signOut(auth);
   };
-
-  const isUpgradedAccount = userProfile?.upgradedAt && !userProfile?.isAnonymous;
 
   return (
     <nav className="border-b bg-white">
@@ -58,12 +56,32 @@ export function Navbar() {
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <div className="flex items-center justify-start gap-2 p-2">
-                  <UserAvatar size="sm" showName showUpgradeStatus />
+                  <UserAvatar size="sm" />
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{userProfile.displayName}</p>
+                    {userProfile.email ? (
+                      <p className="text-xs leading-none text-muted-foreground">
+                        {userProfile.email}
+                      </p>
+                    ) : (
+                      <p className="text-xs leading-none text-muted-foreground">
+                        Guest User
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <DropdownMenuSeparator />
                 
+                <Link href="/profile">
+                  <DropdownMenuItem>
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Manage Profile</span>
+                  </DropdownMenuItem>
+                </Link>
+
                 {userProfile.isAnonymous && (
                   <>
+                    <DropdownMenuSeparator />
                     <Dialog open={showUpgradeDialog} onOpenChange={setShowUpgradeDialog}>
                       <DialogTrigger asChild>
                         <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
@@ -86,20 +104,10 @@ export function Navbar() {
                         />
                       </DialogContent>
                     </Dialog>
-                    <DropdownMenuSeparator />
                   </>
                 )}
 
-                {isUpgradedAccount && (
-                  <>
-                    <DropdownMenuItem disabled>
-                      <Crown className="mr-2 h-4 w-4 text-amber-500" />
-                      <span className="text-green-600">Account Upgraded!</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
-
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Sign Out</span>

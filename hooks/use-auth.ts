@@ -45,6 +45,14 @@ export function useAuth() {
       
       if (!userDoc.exists()) {
         // New user - create fresh profile
+        console.log('Creating new user profile for:', firebaseUser.uid);
+        console.log('Firebase user data:', {
+          displayName: firebaseUser.displayName,
+          email: firebaseUser.email,
+          isAnonymous: firebaseUser.isAnonymous,
+          providerData: firebaseUser.providerData
+        });
+
         const profile: UserProfile = {
           uid: firebaseUser.uid,
           displayName: firebaseUser.displayName || generateRandomUsername(),
@@ -62,6 +70,12 @@ export function useAuth() {
         // If this is an upgrade from anonymous to full account
         if (isUpgrade && existingProfile.isAnonymous && !firebaseUser.isAnonymous) {
           console.log('Upgrading anonymous account with IDP data...');
+          console.log('Firebase user data for upgrade:', {
+            displayName: firebaseUser.displayName,
+            email: firebaseUser.email,
+            isAnonymous: firebaseUser.isAnonymous,
+            providerData: firebaseUser.providerData
+          });
           
           // Overwrite with new account details from IDP
           const upgradedProfile: UserProfile = {
