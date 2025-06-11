@@ -44,13 +44,3 @@ export function UserAvatar({ size = 'md', showName = false }: UserAvatarProps) {
     </div>
   );
 }
-</AvatarFallback>
-      </Avatar>
-      {showName && (
-        <div className="flex flex-col">
-          <span className="text-sm font-medium">{userProfile.displayName}</span>
-        </div>
-      )}
-    </div>
-  );
-}
