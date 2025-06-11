@@ -139,13 +139,14 @@ export default function EventPage() {
         <>
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-amber-900 mb-4">
-              {isEventCreator ? 'Manage Pizzas' : 'Rate the Pizzas'}
+              Pizza Collection
             </h2>
-            {isEventCreator ? (
-              <p className="text-gray-600">Add pizzas for participants to rate and judge.</p>
-            ) : (
-              <p className="text-gray-600">Rate each pizza based on the different criteria.</p>
-            )}
+            <p className="text-gray-600">
+              {isEventCreator 
+                ? 'Add pizzas and rate them alongside your participants!' 
+                : 'Rate each pizza based on the different criteria.'
+              }
+            </p>
           </div>
 
           <PizzaList eventId={event.id} isEventCreator={isEventCreator} />

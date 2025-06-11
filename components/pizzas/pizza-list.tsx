@@ -104,7 +104,7 @@ export function PizzaList({ eventId, isEventCreator }: PizzaListProps) {
             userRating={getUserRating(pizza.id)}
             averageRating={getAverageRating(pizza.id)}
             totalRatings={getTotalRatings(pizza.id)}
-            canRate={!!user && !isEventCreator}
+            canRate={!!user} // All participants (including creators) can rate
           />
         ))}
         
