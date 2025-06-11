@@ -13,14 +13,16 @@ import { format } from 'date-fns';
 import Link from 'next/link';
 import { PizzaList } from '@/components/pizzas/pizza-list';
 import { ParticipantManagement } from '@/components/events/participant-management';
+import { AuthForm } from '@/components/auth/auth-form';
 
 export default function EventPage() {
   const { id } = useParams();
-  const { user, loading: authLoading } = useAuth();
+  const { user, userProfile, loading: authLoading, signInAnonymouslyWithProfile } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showAuthForm, setShowAuthForm] = useState(false);
 
   useEffect(() => {
     async function fetchEvent() {
@@ -45,6 +47,26 @@ export default function EventPage() {
     fetchEvent();
   }, [id, toast]);
 
+  // Auto sign-in anonymously when user visits event page without being logged in
+  useEffect(() => {
+    if (!authLoading && !user && event) {
+      handleAnonymousSignIn();
+    }
+  }, [authLoading, user, event]);
+
+  const handleAnonymousSignIn = async () => {
+    try {
+      await signInAnonymouslyWithProfile();
+      toast({
+        title: 'Welcome!',
+        description: 'You can now join the event and rate pizzas!',
+      });
+    } catch (error) {
+      console.error('Auto anonymous sign-in failed:', error);
+      setShowAuthForm(true);
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -55,17 +77,31 @@ export default function EventPage() {
     );
   }
 
-  if (!user) {
-    router.push('/');
-    return null;
-  }
-
   if (!event) {
     return (
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold text-amber-900">Event not found</h1>
       </div>
     );
+  }
+
+  // Show auth form if user couldn't be auto-signed in
+  if (!user && showAuthForm) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-md mx-auto">
+          <div className="text-center mb-6">
+            <h1 className="text-2xl font-bold text-amber-900 mb-2">Join the Pizza Party!</h1>
+            <p className="text-gray-600">Sign in to join "{event.title}" and start rating pizzas.</p>
+          </div>
+          <AuthForm onAnonymousSignIn={() => setShowAuthForm(false)} />
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || !userProfile) {
+    return null;
   }
 
   const isEventCreator = event.createdBy === user.uid;

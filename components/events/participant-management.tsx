@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
+import { UserAvatar } from '@/components/shared/user-avatar';
 import { Users, UserPlus, UserMinus, Crown } from 'lucide-react';
 
 interface ParticipantManagementProps {
@@ -25,6 +27,7 @@ export function ParticipantManagement({
 }: ParticipantManagementProps) {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { userProfile } = useAuth();
 
   const isParticipant = event.participants.includes(currentUserId);
 
@@ -99,16 +102,20 @@ export function ParticipantManagement({
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-2">
           {event.participants.map((participantId, index) => (
-            <Badge 
-              key={participantId} 
-              variant={participantId === event.createdBy ? "default" : "secondary"}
-              className="flex items-center gap-1"
-            >
-              {participantId === event.createdBy && (
-                <Crown className="h-3 w-3" />
+            <div key={participantId} className="flex items-center gap-2">
+              {participantId === currentUserId && userProfile && (
+                <UserAvatar size="sm" />
               )}
-              {participantId === currentUserId ? 'You' : `Participant ${index + 1}`}
-            </Badge>
+              <Badge 
+                variant={participantId === event.createdBy ? "default" : "secondary"}
+                className="flex items-center gap-1"
+              >
+                {participantId === event.createdBy && (
+                  <Crown className="h-3 w-3" />
+                )}
+                {participantId === currentUserId ? 'You' : `Participant ${index + 1}`}
+              </Badge>
+            </div>
           ))}
         </div>
 
@@ -146,6 +153,13 @@ export function ParticipantManagement({
         {!isParticipant && (
           <div className="text-sm text-gray-600 bg-amber-50 p-3 rounded-lg">
             <p>You need to join this event to rate pizzas and participate in the fun!</p>
+          </div>
+        )}
+
+        {userProfile?.isAnonymous && isParticipant && (
+          <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg border border-blue-200">
+            <p className="font-medium">💡 Tip: You're using a guest account!</p>
+            <p>Consider upgrading your account to save your ratings permanently and access them from any device.</p>
           </div>
         )}
       </CardContent>
